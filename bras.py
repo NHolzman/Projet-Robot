@@ -30,15 +30,15 @@ def set_angle(angle, pwm):
 try:
     while True:
         set_angle(60, pwm1)
-        set_angle(30, pwm2)
+        set_angle(0, pwm2)
         set_angle(90, pwm3)
         time.sleep(0.1) # 100ms juste pour dire qu'on ne recommence pas tout de suite
         set_angle(90, pwm1)
-        set_angle(60, pwm2)
+        set_angle(180, pwm2)
         set_angle(110, pwm3)
         time.sleep(0.1)
         set_angle(150, pwm1)
-        set_angle(120, pwm2)
+        set_angle(30, pwm2)
         set_angle(130, pwm3)
         time.sleep(0.1)
 
