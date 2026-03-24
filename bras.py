@@ -27,25 +27,31 @@ def set_angle(angle, pwm):
     time.sleep(0.7)  # temps pour que le servo bouge
     pwm.ChangeDutyCycle(0)  # éviter vibrations
 
+def set_armServo(angle1, angle2, angle3, delay):
+    set_angle(angle1, pwm1)
+    set_angle(angle2, pwm2)
+    set_angle(angle3, pwm3)
+    time.sleep(delay)
+
 try:
     while True:
-        set_angle(60, pwm1)
-        set_angle(0, pwm2)
-        set_angle(90, pwm3)
-        time.sleep(0.1) # 100ms juste pour dire qu'on ne recommence pas tout de suite
-        set_angle(90, pwm1)
-        set_angle(180, pwm2)
-        set_angle(110, pwm3)
-        time.sleep(0.1)
-        set_angle(150, pwm1)
-        set_angle(30, pwm2)
-        set_angle(130, pwm3)
-        time.sleep(0.1)
+        #set_angle(60, pwm1)
+        #set_angle(0, pwm2)
+        #set_angle(90, pwm3)
+        #time.sleep(0.1) # 100ms juste pour dire qu'on ne recommence pas tout de suite
+        #set_angle(90, pwm1)
+        #set_angle(180, pwm2)
+        #set_angle(110, pwm3)
+        #time.sleep(0.1)
+        #set_angle(150, pwm1)
+        #set_angle(30, pwm2)
+        #set_angle(130, pwm3)
+        #time.sleep(0.1)
+        set_armServo(20, 0, -20, 0.1)
+        set_armServo(90, 180, 110, 0.1)
+        set_armServo(150, 30, 130, 0.1)
 
 except KeyboardInterrupt:
     pass
-
-pwm1.stop()
-pwm2.stop()
 pwm3.stop()
 GPIO.cleanup() # Défaire le setup des GPIO
