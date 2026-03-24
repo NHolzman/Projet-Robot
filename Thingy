@@ -1,0 +1,7 @@
+import serial
+ser = serial.Serial('/dev/ttyAMA0', 9600, timeout=1)
+ser.write(b’boutonStop.bco=65504')
+ser.write(b'\xFF\xFF\xFF')#Il faut tjrs finir avec FFFFFF
+ser.write(b'ref boutonStop')#Redraw button
+ser.write(b'\xFF\xFF\xFF')
+ser.close()
