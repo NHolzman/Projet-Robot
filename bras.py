@@ -5,9 +5,9 @@ import time
 GPIO.setmode(GPIO.BCM)
 
 # Choisir les GPIO pour les signaux
-SERVO_PIN1 = 14
-SERVO_PIN2 = 15
-SERVO_PIN3 = 18
+SERVO_PIN1 = 2
+SERVO_PIN2 = 3
+SERVO_PIN3 = 4
 GPIO.setup(SERVO_PIN1, GPIO.OUT)
 GPIO.setup(SERVO_PIN2, GPIO.OUT)
 GPIO.setup(SERVO_PIN3, GPIO.OUT)
