@@ -13,11 +13,11 @@ GPIO.setup(SERVO_PIN2, GPIO.OUT)
 GPIO.setup(SERVO_PIN3, GPIO.OUT)
 
 # Création des PWM à 50 Hz (standard servo)
-pwm1 = GPIO.PWM(SERVO_PIN1, 50)
+pwm1 = GPIO.PWM(SERVO_PIN1, 62)
 pwm1.start(0)
-pwm2 = GPIO.PWM(SERVO_PIN2, 50)
+pwm2 = GPIO.PWM(SERVO_PIN2, 62)
 pwm2.start(0)
-pwm3 = GPIO.PWM(SERVO_PIN3, 50)
+pwm3 = GPIO.PWM(SERVO_PIN3, 62)
 pwm3.start(0)
 
 def set_angle(angle, pwm):
@@ -35,23 +35,13 @@ def set_armServo(angle1, angle2, angle3, delay):
 
 try:
     while True:
-        #set_angle(60, pwm1)
-        #set_angle(0, pwm2)
-        #set_angle(90, pwm3)
-        #time.sleep(0.1) # 100ms juste pour dire qu'on ne recommence pas tout de suite
-        #set_angle(90, pwm1)
-        #set_angle(180, pwm2)
-        #set_angle(110, pwm3)
-        #time.sleep(0.1)
-        #set_angle(150, pwm1)
-        #set_angle(30, pwm2)
-        #set_angle(130, pwm3)
-        #time.sleep(0.1)
-        set_armServo(20, 0, -20, 0.1)
-        set_armServo(90, 180, 110, 0.1)
-        set_armServo(150, 30, 130, 0.1)
+        set_armServo(0, 15, 0, 0.3)
+        set_armServo(0, 90, 0, 0.3)
+        set_armServo(0, 165, 0, 0.3)
 
 except KeyboardInterrupt:
     pass
+pwm1.stop()
+pwm2.stop()
 pwm3.stop()
 GPIO.cleanup() # Défaire le setup des GPIO
