@@ -1,47 +1,62 @@
-import RPi.GPIO as GPIO
+import pigpio
 import time
+from pynput import keyboard
 
-# Utilisation de la numérotation BCM (mode GPIO number plutôt que PIN number)
-GPIO.setmode(GPIO.BCM)
-
-# Choisir les GPIO pour les signaux
+# ================== CONFIGURATION ==================
 SERVO_PIN1 = 2
 SERVO_PIN2 = 3
 SERVO_PIN3 = 4
-GPIO.setup(SERVO_PIN1, GPIO.OUT)
-GPIO.setup(SERVO_PIN2, GPIO.OUT)
-GPIO.setup(SERVO_PIN3, GPIO.OUT)
 
-# Création des PWM à 50 Hz (standard servo)
-pwm1 = GPIO.PWM(SERVO_PIN1, 62)
-pwm1.start(0)
-pwm2 = GPIO.PWM(SERVO_PIN2, 62)
-pwm2.start(0)
-pwm3 = GPIO.PWM(SERVO_PIN3, 62)
-pwm3.start(0)
+# pigpio uses pulse width in microseconds (usually 500 to 2500)
+MIN_PW = 500   # 0 degrees
+MAX_PW = 2500  # 180 degrees
+STEP_SIZE = 100 # Change in pulse width per press
 
-def set_angle(angle, pwm):
-    # Conversion angle → DutyCycle
-    duty = 2 + (angle / 18)  # approx pour SG90 (0°=2%, 90°=7%, 180°=12%)
-    pwm.ChangeDutyCycle(duty)
-    time.sleep(0.7)  # temps pour que le servo bouge
-    pwm.ChangeDutyCycle(0)  # éviter vibrations
+class ServoArm:
+    def __init__(self):
+        self.pi = pigpio.pi()
+        if not self.pi.connected:
+            print("Could not connect to pigpiod. Did you run 'sudo pigpiod'?")
+            exit()
+            
+        self.pins = [SERVO_PIN1, SERVO_PIN2, SERVO_PIN3]
+        self.current_pws = [1500, 1500, 1500] # Start at 90 degrees (1500us)
+        
+        for i, pin in enumerate(self.pins):
+            self.pi.set_servo_pulsewidth(pin, self.current_pws[i])
 
-def set_armServo(angle1, angle2, angle3, delay):
-    set_angle(angle1, pwm1)
-    set_angle(angle2, pwm2)
-    set_angle(angle3, pwm3)
-    time.sleep(delay)
+    def update_servo(self, index, delta):
+        new_pw = self.current_pws[index] + delta
+        new_pw = max(MIN_PW, min(MAX_PW, new_pw)) # Clamp
+        self.current_pws[index] = new_pw
+        self.pi.set_servo_pulsewidth(self.pins[index], new_pw)
+        print(f"Servo {index} Pulse Width: {new_pw}")
 
-try:
-    while True:
-        set_armServo(0, 15, 0, 0.3)
-        set_armServo(0, 90, 0, 0.3)
-        set_armServo(0, 165, 0, 0.3)
+    def cleanup(self):
+        for pin in self.pins:
+            self.pi.set_servo_pulsewidth(pin, 0) # Stop pulses
+        self.pi.stop()
 
-except KeyboardInterrupt:
-    pass
-pwm1.stop()
-pwm2.stop()
-pwm3.stop()
-GPIO.cleanup() # Défaire le setup des GPIO
+# ================== LOGIC ==================
+arm = ServoArm()
+
+def on_press(key):
+    try:
+        if key == keyboard.Key.left:  arm.update_servo(0, -STEP_SIZE)
+        elif key == keyboard.Key.right: arm.update_servo(0, STEP_SIZE)
+        elif key == keyboard.Key.up:    arm.update_servo(1, STEP_SIZE)
+        elif key == keyboard.Key.down:  arm.update_servo(1, -STEP_SIZE)
+        elif hasattr(key, 'char'):
+            if key.char == 'w': arm.update_servo(2, STEP_SIZE)
+            elif key.char == 's': arm.update_servo(2, -STEP_SIZE)
+    except Exception as e:
+        print(f"Error: {e}")
+
+def on_release(key):
+    if key == keyboard.Key.esc: return False
+
+if __name__ == "__main__":
+    print("Control Ready. ESC to Quit.")
+    with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
+        listener.join()
+        arm.cleanup()
