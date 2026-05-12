@@ -1,0 +1,117 @@
+import pigpio
+import time
+import cv2
+import numpy as np
+from pynput import keyboard
+
+# ================== CONFIGURATION ==================
+SERVO_PIN1, SERVO_PIN2, SERVO_PIN3 = 2, 3, 4
+MIN_PW, MAX_PW = 500, 2500
+SERVO0_MIN, SERVO0_MAX = 1600, 2400
+STEP_SIZE = 50 
+
+# CV Parameters
+KNOWN_WIDTHS = {"ball": 3.0, "cube": 2.2, "triangle": 5.0}
+FOCAL_LENGTH = 500.0
+
+# Colors (HSV)
+COLORS = {
+    "orange": ([5, 120, 120], [25, 255, 255], (0, 140, 255)),
+    "green": ([45, 60, 60], [75, 255, 255], (0, 255, 0)),
+    "blue": ([100, 120, 80], [130, 255, 255], (255, 0, 0))
+}
+
+class RoboticArm:
+    def __init__(self):
+        self.pi = pigpio.pi()
+        if not self.pi.connected:
+            print("Check pigpiod!")
+            exit()
+        self.pins = [SERVO_PIN1, SERVO_PIN2, SERVO_PIN3]
+        self.current_pws = [2000, 1500, 1650]
+        for i, pin in enumerate(self.pins):
+            self.pi.set_servo_pulsewidth(pin, self.current_pws[i])
+
+    def update_servo(self, index, delta):
+        if index == 2: # Toggle behavior for Servo 2
+            self.current_pws[2] = 2200 if self.current_pws[2] == 1650 else 1650
+        else:
+            new_pw = self.current_pws[index] + delta
+            limit_min = SERVO0_MIN if index == 0 else MIN_PW
+            limit_max = SERVO0_MAX if index == 0 else MAX_PW
+            self.current_pws[index] = max(limit_min, min(limit_max, new_pw))
+        
+        self.pi.set_servo_pulsewidth(self.pins[index], self.current_pws[index])
+
+    def cleanup(self):
+        for pin in self.pins: self.pi.set_servo_pulsewidth(pin, 0)
+        self.pi.stop()
+
+# ================== CV FUNCTIONS ==================
+def get_distance(shape, pixel_width):
+    known_w = KNOWN_WIDTHS.get(shape, 3.0)
+    return (known_w * FOCAL_LENGTH) / pixel_width
+
+def detect_shape(contour):
+    peri = cv2.arcLength(contour, True)
+    if peri == 0: return "object"
+    area = cv2.contourArea(contour)
+    circularity = 4 * np.pi * (area / (peri * peri))
+    if circularity > 0.75: return "ball"
+    approx = cv2.approxPolyDP(contour, 0.04 * peri, True)
+    sides = len(approx)
+    if sides == 3: return "triangle"
+    return "cube" if 4 <= sides <= 6 else "object"
+
+# ================== MAIN EXECUTION ==================
+arm = RoboticArm()
+
+def on_press(key):
+    try:
+        if key == keyboard.Key.up: arm.update_servo(0, -STEP_SIZE)
+        elif key == keyboard.Key.down: arm.update_servo(0, STEP_SIZE)
+        elif key == keyboard.Key.left: arm.update_servo(1, STEP_SIZE)
+        elif key == keyboard.Key.right: arm.update_servo(1, -STEP_SIZE)
+        elif hasattr(key, 'char'):
+            if key.char == 'w': arm.update_servo(2, STEP_SIZE)
+            elif key.char == 's': arm.update_servo(2, -STEP_SIZE)
+    except: pass
+
+# Start Keyboard Thread
+listener = keyboard.Listener(on_press=on_press)
+listener.start()
+
+cap = cv2.VideoCapture(0)
+print("System Ready. Manual control active. ESC in CV window to quit.")
+
+try:
+    while True:
+        ret, frame = cap.read()
+        if not ret: break
+        
+        hsv = cv2.cvtColor(cv2.GaussianBlur(frame, (7, 7), 0), cv2.COLOR_BGR2HSV)
+        
+        for name, (low, high, bgr_color) in COLORS.items():
+            mask = cv2.inRange(hsv, np.array(low), np.array(high))
+            mask = cv2.dilate(cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5,5))), None, iterations=2)
+            
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            for cnt in contours:
+                if cv2.contourArea(cnt) > 500:
+                    shape = detect_shape(cnt)
+                    x, y, w, h = cv2.boundingRect(cnt)
+                    dist = get_distance(shape, w)
+                    
+                    # Visual Feedback
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), bgr_color, 2)
+                    cv2.putText(frame, f"{name} {shape}: {dist:.1f}cm", (x, y - 10), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, bgr_color, 2)
+
+        cv2.imshow("Robotic Vision", frame)
+        if cv2.waitKey(1) & 0xFF == 27: break
+finally:
+    cap.release()
+    cv2.destroyAllWindows()
+    arm.cleanup()
+    listener.stop()
